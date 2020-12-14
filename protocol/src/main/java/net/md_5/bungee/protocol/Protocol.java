@@ -1,0 +1,704 @@
+package net.md_5.bungee.protocol;
+
+import com.google.common.base.Preconditions;
+import com.google.common.collect.Iterables;
+import gnu.trove.map.TIntObjectMap;
+import gnu.trove.map.TObjectIntMap;
+import gnu.trove.map.hash.TIntObjectHashMap;
+import gnu.trove.map.hash.TObjectIntHashMap;
+import java.lang.reflect.Constructor;
+import lombok.Data;
+import lombok.Getter;
+import net.md_5.bungee.protocol.packet.BossBar;
+import net.md_5.bungee.protocol.packet.Chat;
+import net.md_5.bungee.protocol.packet.ClientSettings;
+import net.md_5.bungee.protocol.packet.Commands;
+import net.md_5.bungee.protocol.packet.EncryptionRequest;
+import net.md_5.bungee.protocol.packet.EncryptionResponse;
+import net.md_5.bungee.protocol.packet.EntityStatus;
+import net.md_5.bungee.protocol.packet.GameState;
+import net.md_5.bungee.protocol.packet.EntityEffect;
+import net.md_5.bungee.protocol.packet.EntityRemoveEffect;
+import net.md_5.bungee.protocol.packet.Handshake;
+import net.md_5.bungee.protocol.packet.KeepAlive;
+import net.md_5.bungee.protocol.packet.Kick;
+import net.md_5.bungee.protocol.packet.Login;
+import net.md_5.bungee.protocol.packet.LoginPayloadRequest;
+import net.md_5.bungee.protocol.packet.LoginPayloadResponse;
+import net.md_5.bungee.protocol.packet.LoginRequest;
+import net.md_5.bungee.protocol.packet.LoginSuccess;
+import net.md_5.bungee.protocol.packet.PingPacket;
+import net.md_5.bungee.protocol.packet.PlayerListHeaderFooter;
+import net.md_5.bungee.protocol.packet.PlayerListItem;
+import net.md_5.bungee.protocol.packet.PluginMessage;
+import net.md_5.bungee.protocol.packet.Respawn;
+import net.md_5.bungee.protocol.packet.ScoreboardDisplay;
+import net.md_5.bungee.protocol.packet.ScoreboardObjective;
+import net.md_5.bungee.protocol.packet.ScoreboardScore;
+import net.md_5.bungee.protocol.packet.SetCompression;
+import net.md_5.bungee.protocol.packet.StatusRequest;
+import net.md_5.bungee.protocol.packet.StatusResponse;
+import net.md_5.bungee.protocol.packet.TabCompleteRequest;
+import net.md_5.bungee.protocol.packet.TabCompleteResponse;
+import net.md_5.bungee.protocol.packet.Team;
+import net.md_5.bungee.protocol.packet.Title;
+import net.md_5.bungee.protocol.packet.ViewDistance;
+
+public enum Protocol
+{
+
+    // Undef
+    HANDSHAKE
+    {
+
+        {
+            // Waterdog start
+            TO_SERVER.registerPacket(
+                    network.ycc.waterdog.pe.packet.PEHandshake.class,
+                    network.ycc.waterdog.pe.packet.PEHandshake::new,
+                    map( ProtocolConstants.MINECRAFT_PE_1_8, 0x01 )
+            );
+            TO_CLIENT.registerPacket(
+                    KeepAlive.class,
+                    KeepAlive::new,
+                    map( ProtocolConstants.MINECRAFT_PE_1_8, 0x00 )
+            );
+            // Waterdog end
+            TO_SERVER.registerPacket(
+                    Handshake.class,
+                    Handshake::new, // Waterfall - speed up packet construction
+                    map( ProtocolConstants.MINECRAFT_1_7_2, 0x00 ) // Travertine
+            );
+        }
+    },
+    // 0
+    GAME
+    {
+
+        {
+            // Waterdog start
+            TO_CLIENT.registerPacket(
+                    network.ycc.waterdog.pe.packet.PEResourcePack.class,
+                    network.ycc.waterdog.pe.packet.PEResourcePack::new,
+                    map( ProtocolConstants.MINECRAFT_PE_1_8, 0x06 )
+            );
+            TO_CLIENT.registerPacket(
+                    network.ycc.waterdog.pe.packet.PEResourceStack.class,
+                    network.ycc.waterdog.pe.packet.PEResourceStack::new,
+                    map( ProtocolConstants.MINECRAFT_PE_1_8, 0x07 )
+            );
+            TO_SERVER.registerPacket(
+                    network.ycc.waterdog.pe.packet.PEResourcePackChunkRequest.class,
+                    network.ycc.waterdog.pe.packet.PEResourcePackChunkRequest::new,
+                    map( ProtocolConstants.MINECRAFT_PE_1_8, 0x54 )
+            );
+            TO_SERVER.registerPacket(
+                    network.ycc.waterdog.pe.packet.PEResourcePackResponse.class,
+                    network.ycc.waterdog.pe.packet.PEResourcePackResponse::new,
+                    map( ProtocolConstants.MINECRAFT_PE_1_8, 0x08 )
+            );
+            TO_CLIENT.registerPacket(
+                    network.ycc.waterdog.pe.packet.PELogin.class,
+                    network.ycc.waterdog.pe.packet.PELogin::new,
+                    map( ProtocolConstants.MINECRAFT_PE_1_8, 0x0B )
+            );
+            TO_CLIENT.registerPacket(
+                    network.ycc.waterdog.pe.packet.PETransfer.class,
+                    network.ycc.waterdog.pe.packet.PETransfer::new,
+                    map( ProtocolConstants.MINECRAFT_PE_1_8, 0x55 )
+            );
+            TO_CLIENT.registerPacket(
+                    network.ycc.waterdog.pe.packet.PESetDisplayObjectivePacket.class,
+                    network.ycc.waterdog.pe.packet.PESetDisplayObjectivePacket::new,
+                    map( ProtocolConstants.MINECRAFT_PE_1_8, 0x6b )
+            );
+            TO_CLIENT.registerPacket(
+                    network.ycc.waterdog.pe.packet.PERemoveObjectivePacket.class,
+                    network.ycc.waterdog.pe.packet.PERemoveObjectivePacket::new,
+                    map( ProtocolConstants.MINECRAFT_PE_1_8, 0x6a )
+            );
+            TO_SERVER.registerPacket(
+                    network.ycc.waterdog.pe.packet.PECommand.class,
+                    network.ycc.waterdog.pe.packet.PECommand::new,
+                    map( ProtocolConstants.MINECRAFT_PE_1_8, 0x4D )
+            );
+            TO_SERVER.registerPacket(
+                    network.ycc.waterdog.pe.packet.PELocalPlayerInitialized.class,
+                    network.ycc.waterdog.pe.packet.PELocalPlayerInitialized::new,
+                    map( ProtocolConstants.MINECRAFT_PE_1_8, 0x71 )
+            );
+            TO_CLIENT.registerPacket(
+                    network.ycc.waterdog.pe.packet.PEStopSoundPacket.class,
+                    network.ycc.waterdog.pe.packet.PEStopSoundPacket::new,
+                    Protocol.map( ProtocolConstants.MINECRAFT_PE_1_8, 0x57 )
+            );
+            // Waterdog end
+            TO_CLIENT.registerPacket(
+                    KeepAlive.class,
+                    KeepAlive::new, // Waterfall - speed up packet construction
+                    map( ProtocolConstants.MINECRAFT_PE_1_8, 0x00 ), // Waterdog
+                    map( ProtocolConstants.MINECRAFT_1_7_2, 0x00 ), // Travertine
+                    map( ProtocolConstants.MINECRAFT_1_9, 0x1F ),
+                    map( ProtocolConstants.MINECRAFT_1_13, 0x21 ),
+                    map( ProtocolConstants.MINECRAFT_1_14, 0x20 ),
+                    map( ProtocolConstants.MINECRAFT_1_15, 0x21 )
+            );
+            TO_CLIENT.registerPacket(
+                    Login.class,
+                    Login::new, // Waterfall - speed up packet construction
+                    map( ProtocolConstants.MINECRAFT_1_7_2, 0x01 ), // Travertine
+                    map( ProtocolConstants.MINECRAFT_1_9, 0x23 ),
+                    map( ProtocolConstants.MINECRAFT_1_13, 0x25 ),
+                    map( ProtocolConstants.MINECRAFT_1_15, 0x26 )
+            );
+            TO_CLIENT.registerPacket(
+                    Chat.class,
+                    Chat::new, // Waterfall - speed up packet construction
+                    map( ProtocolConstants.MINECRAFT_PE_1_8, 0x09 ), // Waterdog
+                    map( ProtocolConstants.MINECRAFT_1_7_2, 0x02 ), // Travertine
+                    map( ProtocolConstants.MINECRAFT_1_9, 0x0F ),
+                    map( ProtocolConstants.MINECRAFT_1_13, 0x0E ),
+                    map( ProtocolConstants.MINECRAFT_1_15, 0x0F )
+            );
+            TO_CLIENT.registerPacket(
+                    Respawn.class,
+                    Respawn::new, // Waterfall - speed up packet construction
+                    map( ProtocolConstants.MINECRAFT_PE_1_8, 0x3D ), // Waterdog
+                    map( ProtocolConstants.MINECRAFT_1_7_2, 0x07 ), // Travertine
+                    map( ProtocolConstants.MINECRAFT_1_9, 0x33 ),
+                    map( ProtocolConstants.MINECRAFT_1_12, 0x34 ),
+                    map( ProtocolConstants.MINECRAFT_1_12_1, 0x35 ),
+                    map( ProtocolConstants.MINECRAFT_1_13, 0x38 ),
+                    map( ProtocolConstants.MINECRAFT_1_14, 0x3A ),
+                    map( ProtocolConstants.MINECRAFT_1_15, 0x3B )
+            );
+            TO_CLIENT.registerPacket(
+                    BossBar.class,
+                    BossBar::new, // Waterfall - speed up packet construction
+                    map( ProtocolConstants.MINECRAFT_PE_1_8, 0x4A ), // Waterdog
+                    map( ProtocolConstants.MINECRAFT_1_9, 0x0C ),
+                    map( ProtocolConstants.MINECRAFT_1_15, 0x0D )
+            );
+            // Waterfall start
+            TO_CLIENT.registerPacket(
+                    EntityEffect.class,
+                    EntityEffect::new, // Waterfall - speed up packet construction
+                    map(ProtocolConstants.MINECRAFT_1_7_2, 0x1D), // Travertine
+                    map(ProtocolConstants.MINECRAFT_1_9, 0x4C),
+                    map(ProtocolConstants.MINECRAFT_1_9_4, 0x4B),
+                    map(ProtocolConstants.MINECRAFT_1_12, 0x4E),
+                    map(ProtocolConstants.MINECRAFT_1_12_1, 0x4F),
+                    map(ProtocolConstants.MINECRAFT_1_13, 0x53),
+                    map(ProtocolConstants.MINECRAFT_1_14, 0x59),
+                    map(ProtocolConstants.MINECRAFT_1_15, 0x5A)
+            );
+            TO_CLIENT.registerPacket(
+                    EntityRemoveEffect.class,
+                    EntityRemoveEffect::new, // Waterfall - speed up packet construction
+                    map(ProtocolConstants.MINECRAFT_1_7_2, 0x1E), // Travertine
+                    map(ProtocolConstants.MINECRAFT_1_9, 0x31),
+                    map(ProtocolConstants.MINECRAFT_1_12, 0x32),
+                    map(ProtocolConstants.MINECRAFT_1_12_1, 0x33),
+                    map(ProtocolConstants.MINECRAFT_1_13, 0x36),
+                    map(ProtocolConstants.MINECRAFT_1_14, 0x38),
+                    map(ProtocolConstants.MINECRAFT_1_15, 0x39)
+            );
+            // Waterfall end
+            TO_CLIENT.registerPacket(
+                    PlayerListItem.class, // PlayerInfo
+                    PlayerListItem::new, // Waterfall - speed up packet construction
+                    map( ProtocolConstants.MINECRAFT_1_7_2, 0x38 ), // Travertine
+                    map( ProtocolConstants.MINECRAFT_1_9, 0x2D ),
+                    map( ProtocolConstants.MINECRAFT_1_12_1, 0x2E ),
+                    map( ProtocolConstants.MINECRAFT_1_13, 0x30 ),
+                    map( ProtocolConstants.MINECRAFT_1_14, 0x33 ),
+                    map( ProtocolConstants.MINECRAFT_1_15, 0x34 )
+            );
+            TO_CLIENT.registerPacket(
+                    TabCompleteResponse.class,
+                    TabCompleteResponse::new, // Waterfall - speed up packet construction
+                    map( ProtocolConstants.MINECRAFT_1_7_2, 0x3A ), // Travertine
+                    map( ProtocolConstants.MINECRAFT_1_9, 0x0E ),
+                    map( ProtocolConstants.MINECRAFT_1_13, 0x10 ),
+                    map( ProtocolConstants.MINECRAFT_1_15, 0x11 )
+            );
+            TO_CLIENT.registerPacket(
+                    ScoreboardObjective.class,
+                    ScoreboardObjective::new, // Waterfall - speed up packet construction
+                    map( ProtocolConstants.MINECRAFT_1_7_2, 0x3B ), // Travertine
+                    map( ProtocolConstants.MINECRAFT_1_9, 0x3F ),
+                    map( ProtocolConstants.MINECRAFT_1_12, 0x41 ),
+                    map( ProtocolConstants.MINECRAFT_1_12_1, 0x42 ),
+                    map( ProtocolConstants.MINECRAFT_1_13, 0x45 ),
+                    map( ProtocolConstants.MINECRAFT_1_14, 0x49 ),
+                    map( ProtocolConstants.MINECRAFT_1_15, 0x4A )
+            );
+            TO_CLIENT.registerPacket(
+                    ScoreboardScore.class,
+                    ScoreboardScore::new, // Waterfall - speed up packet construction
+                    map( ProtocolConstants.MINECRAFT_1_7_2, 0x3C ), // Travertine
+                    map( ProtocolConstants.MINECRAFT_1_9, 0x42 ),
+                    map( ProtocolConstants.MINECRAFT_1_12, 0x44 ),
+                    map( ProtocolConstants.MINECRAFT_1_12_1, 0x45 ),
+                    map( ProtocolConstants.MINECRAFT_1_13, 0x48 ),
+                    map( ProtocolConstants.MINECRAFT_1_14, 0x4C ),
+                    map( ProtocolConstants.MINECRAFT_1_15, 0x4D )
+            );
+            TO_CLIENT.registerPacket(
+                    ScoreboardDisplay.class,
+                    ScoreboardDisplay::new, // Waterfall - speed up packet construction
+                    map( ProtocolConstants.MINECRAFT_1_7_2, 0x3D ), // Travertine
+                    map( ProtocolConstants.MINECRAFT_1_9, 0x38 ),
+                    map( ProtocolConstants.MINECRAFT_1_12, 0x3A ),
+                    map( ProtocolConstants.MINECRAFT_1_12_1, 0x3B ),
+                    map( ProtocolConstants.MINECRAFT_1_13, 0x3E ),
+                    map( ProtocolConstants.MINECRAFT_1_14, 0x42 ),
+                    map( ProtocolConstants.MINECRAFT_1_15, 0x43 )
+            );
+            TO_CLIENT.registerPacket(
+                    Team.class,
+                    Team::new, // Waterfall - speed up packet construction
+                    map( ProtocolConstants.MINECRAFT_1_7_2, 0x3E ), // Travertine
+                    map( ProtocolConstants.MINECRAFT_1_9, 0x41 ),
+                    map( ProtocolConstants.MINECRAFT_1_12, 0x43 ),
+                    map( ProtocolConstants.MINECRAFT_1_12_1, 0x44 ),
+                    map( ProtocolConstants.MINECRAFT_1_13, 0x47 ),
+                    map( ProtocolConstants.MINECRAFT_1_14, 0x4B ),
+                    map( ProtocolConstants.MINECRAFT_1_15, 0x4C )
+            );
+            TO_CLIENT.registerPacket(
+                    PluginMessage.class,
+                    PluginMessage::new, // Waterfall - speed up packet construction
+                    map( ProtocolConstants.MINECRAFT_PE_1_8, 0x75 ), // Waterdog
+                    map( ProtocolConstants.MINECRAFT_1_7_2, 0x3F ), // Travertine
+                    map( ProtocolConstants.MINECRAFT_1_9, 0x18 ),
+                    map( ProtocolConstants.MINECRAFT_1_13, 0x19 ),
+                    map( ProtocolConstants.MINECRAFT_1_14, 0x18 ),
+                    map( ProtocolConstants.MINECRAFT_1_15, 0x19 )
+            );
+            TO_CLIENT.registerPacket(
+                    Kick.class,
+                    Kick::new, // Waterfall - speed up packet construction
+                    map( ProtocolConstants.MINECRAFT_PE_1_8, 0x05 ), // Waterdog
+                    map( ProtocolConstants.MINECRAFT_1_7_2, 0x40 ), // Travertine
+                    map( ProtocolConstants.MINECRAFT_1_9, 0x1A ),
+                    map( ProtocolConstants.MINECRAFT_1_13, 0x1B ),
+                    map( ProtocolConstants.MINECRAFT_1_14, 0x1A ),
+                    map( ProtocolConstants.MINECRAFT_1_15, 0x1B )
+            );
+            TO_CLIENT.registerPacket(
+                    Title.class,
+                    Title::new, // Waterfall - speed up packet construction
+                    map( ProtocolConstants.MINECRAFT_1_7_2, 0x45 ), // Travertine
+                    map( ProtocolConstants.MINECRAFT_1_12, 0x47 ),
+                    map( ProtocolConstants.MINECRAFT_1_12_1, 0x48 ),
+                    map( ProtocolConstants.MINECRAFT_1_13, 0x4B ),
+                    map( ProtocolConstants.MINECRAFT_1_14, 0x4F ),
+                    map( ProtocolConstants.MINECRAFT_1_15, 0x50 )
+            );
+            TO_CLIENT.registerPacket(
+                    PlayerListHeaderFooter.class,
+                    PlayerListHeaderFooter::new, // Waterfall - speed up packet construction
+                    map( ProtocolConstants.MINECRAFT_1_7_2, 0x47 ), // Travertine
+                    map( ProtocolConstants.MINECRAFT_1_9, 0x48 ),
+                    map( ProtocolConstants.MINECRAFT_1_9_4, 0x47 ),
+                    map( ProtocolConstants.MINECRAFT_1_12, 0x49 ),
+                    map( ProtocolConstants.MINECRAFT_1_12_1, 0x4A ),
+                    map( ProtocolConstants.MINECRAFT_1_13, 0x4E ),
+                    map( ProtocolConstants.MINECRAFT_1_14, 0x53 ),
+                    map( ProtocolConstants.MINECRAFT_1_15, 0x54 )
+            );
+            TO_CLIENT.registerPacket(
+                    EntityStatus.class,
+                    EntityStatus::new, // Waterfall - speed up packet construction
+                    map( ProtocolConstants.MINECRAFT_1_7_2, 0x1A ), // Travertine
+                    map( ProtocolConstants.MINECRAFT_1_9, 0x1B ),
+                    map( ProtocolConstants.MINECRAFT_1_13, 0x1C ),
+                    map( ProtocolConstants.MINECRAFT_1_14, 0x1B ),
+                    map( ProtocolConstants.MINECRAFT_1_15, 0x1C )
+            );
+            TO_CLIENT.registerPacket(
+                    Commands.class,
+                    Commands::new, // Waterfall - speed up packet construction
+                    map( ProtocolConstants.MINECRAFT_1_13, 0x11 ),
+                    map( ProtocolConstants.MINECRAFT_1_15, 0x12 )
+            );
+            TO_CLIENT.registerPacket(
+                    GameState.class,
+                    GameState::new, // Waterfall - speed up packet construction
+                    map( ProtocolConstants.MINECRAFT_1_15, 0x1F )
+            );
+            TO_CLIENT.registerPacket(
+                    ViewDistance.class,
+                    ViewDistance::new, // Waterfall - speed up packet construction
+                    map( ProtocolConstants.MINECRAFT_1_14, 0x41 ),
+                    map( ProtocolConstants.MINECRAFT_1_15, 0x42 )
+            );
+
+            TO_SERVER.registerPacket(
+                    KeepAlive.class,
+                    KeepAlive::new, // Waterfall - speed up packet construction
+                    map( ProtocolConstants.MINECRAFT_PE_1_8, 0x00 ), // Waterdog
+                    map( ProtocolConstants.MINECRAFT_1_7_2, 0x00 ), // Travertine
+                    map( ProtocolConstants.MINECRAFT_1_9, 0x0B ),
+                    map( ProtocolConstants.MINECRAFT_1_12, 0x0C ),
+                    map( ProtocolConstants.MINECRAFT_1_12_1, 0x0B ),
+                    map( ProtocolConstants.MINECRAFT_1_13, 0x0E ),
+                    map( ProtocolConstants.MINECRAFT_1_14, 0x0F )
+            );
+            TO_SERVER.registerPacket(
+                    Chat.class,
+                    Chat::new, // Waterfall - speed up packet construction
+                    map( ProtocolConstants.MINECRAFT_PE_1_8, 0x09 ), // Waterdog
+                    map( ProtocolConstants.MINECRAFT_1_7_2, 0x01 ), // Travertine
+                    map( ProtocolConstants.MINECRAFT_1_9, 0x02 ),
+                    map( ProtocolConstants.MINECRAFT_1_12, 0x03 ),
+                    map( ProtocolConstants.MINECRAFT_1_12_1, 0x02 ),
+                    map( ProtocolConstants.MINECRAFT_1_14, 0x03 )
+            );
+            TO_SERVER.registerPacket(
+                    TabCompleteRequest.class,
+                    TabCompleteRequest::new, // Waterfall - speed up packet construction
+                    map( ProtocolConstants.MINECRAFT_1_7_2, 0x14 ), // Travertine
+                    map( ProtocolConstants.MINECRAFT_1_9, 0x01 ),
+                    map( ProtocolConstants.MINECRAFT_1_12, 0x02 ),
+                    map( ProtocolConstants.MINECRAFT_1_12_1, 0x01 ),
+                    map( ProtocolConstants.MINECRAFT_1_13, 0x05 ),
+                    map( ProtocolConstants.MINECRAFT_1_14, 0x06 )
+            );
+            TO_SERVER.registerPacket(
+                    ClientSettings.class,
+                    ClientSettings::new, // Waterfall - speed up packet construction
+                    map( ProtocolConstants.MINECRAFT_PE_1_8, 0x45 ), // Waterdog
+                    map( ProtocolConstants.MINECRAFT_1_7_2, 0x15 ), // Travertine
+                    map( ProtocolConstants.MINECRAFT_1_9, 0x04 ),
+                    map( ProtocolConstants.MINECRAFT_1_12, 0x05 ),
+                    map( ProtocolConstants.MINECRAFT_1_12_1, 0x04 ),
+                    map( ProtocolConstants.MINECRAFT_1_14, 0x05 )
+            );
+            TO_SERVER.registerPacket(
+                    PluginMessage.class,
+                    PluginMessage::new, // Waterfall - speed up packet construction
+                    map( ProtocolConstants.MINECRAFT_PE_1_8, 0x75 ), // Waterdog
+                    map( ProtocolConstants.MINECRAFT_1_7_2, 0x17 ), // Travertine
+                    map( ProtocolConstants.MINECRAFT_1_9, 0x09 ),
+                    map( ProtocolConstants.MINECRAFT_1_12, 0x0A ),
+                    map( ProtocolConstants.MINECRAFT_1_12_1, 0x09 ),
+                    map( ProtocolConstants.MINECRAFT_1_13, 0x0A ),
+                    map( ProtocolConstants.MINECRAFT_1_14, 0x0B )
+            );
+        }
+    },
+    // 1
+    STATUS
+    {
+
+        {
+            TO_CLIENT.registerPacket(
+                    StatusResponse.class,
+                    StatusResponse::new, // Waterfall - speed up packet construction
+                    map( ProtocolConstants.MINECRAFT_1_7_2, 0x00 ) // Travertine
+            );
+            TO_CLIENT.registerPacket(
+                    PingPacket.class,
+                    PingPacket::new, // Waterfall - speed up packet construction
+                    map( ProtocolConstants.MINECRAFT_1_7_2, 0x01 ) // Travertine
+            );
+
+            TO_SERVER.registerPacket(
+                    StatusRequest.class,
+                    StatusRequest::new, // Waterfall - speed up packet construction
+                    map( ProtocolConstants.MINECRAFT_1_7_2, 0x00 ) // Travertine
+            );
+            TO_SERVER.registerPacket(
+                    PingPacket.class,
+                    PingPacket::new, // Waterfall - speed up packet construction
+                    map( ProtocolConstants.MINECRAFT_1_7_2, 0x01 ) // Travertine
+            );
+        }
+    },
+    //2
+    LOGIN
+    {
+
+        {
+            // Waterdog start
+            TO_CLIENT.registerPacket(
+                    network.ycc.waterdog.pe.packet.PEEncryptionRequest.class,
+                    network.ycc.waterdog.pe.packet.PEEncryptionRequest::new,
+                    map( ProtocolConstants.MINECRAFT_PE_1_8, 0x03 )
+            );
+            TO_SERVER.registerPacket(
+                    network.ycc.waterdog.pe.packet.PEEncryptionResponse.class,
+                    network.ycc.waterdog.pe.packet.PEEncryptionResponse::new,
+                    map( ProtocolConstants.MINECRAFT_PE_1_8, 0x04 )
+            );
+            // Waterdog end
+            TO_CLIENT.registerPacket(
+                    Kick.class,
+                    Kick::new, // Waterfall - speed up packet construction
+                    map( ProtocolConstants.MINECRAFT_PE_1_8, 0x05 ), // Waterdog
+                    map( ProtocolConstants.MINECRAFT_1_7_2, 0x00 ) // Travertine
+            );
+            TO_CLIENT.registerPacket(
+                    EncryptionRequest.class,
+                    EncryptionRequest::new, // Waterfall - speed up packet construction
+                    map( ProtocolConstants.MINECRAFT_1_7_2, 0x01 ) // Travertine
+            );
+            TO_CLIENT.registerPacket(
+                    LoginSuccess.class,
+                    LoginSuccess::new, // Waterfall - speed up packet construction
+                    map( ProtocolConstants.MINECRAFT_PE_1_8, 0x02 ), // Waterdog
+                    map( ProtocolConstants.MINECRAFT_1_7_2, 0x02 ) // Travertine
+            );
+            TO_CLIENT.registerPacket(
+                    SetCompression.class,
+                    SetCompression::new, // Waterfall - speed up packet construction
+                    map( ProtocolConstants.MINECRAFT_1_7_2, 0x03 ) // Travertine
+            );
+            TO_CLIENT.registerPacket(
+                    LoginPayloadRequest.class,
+                    LoginPayloadRequest::new, // Waterfall - speed up packet construction
+                    map( ProtocolConstants.MINECRAFT_1_13, 0x04 )
+            );
+
+            TO_SERVER.registerPacket(
+                    LoginRequest.class,
+                    LoginRequest::new, // Waterfall - speed up packet construction
+                    map( ProtocolConstants.MINECRAFT_1_7_2, 0x00 ) // Travertine
+            );
+            TO_SERVER.registerPacket(
+                    EncryptionResponse.class,
+                    EncryptionResponse::new, // Waterfall - speed up packet construction
+                    map( ProtocolConstants.MINECRAFT_1_7_2, 0x01 ) // Travertine
+            );
+            TO_SERVER.registerPacket(
+                    LoginPayloadResponse.class,
+                    LoginPayloadResponse::new, // Waterfall - speed up packet construction
+                    map( ProtocolConstants.MINECRAFT_1_13, 0x02 )
+            );
+        }
+    };
+    /*========================================================================*/
+    public static final int MAX_PACKET_ID = 0xFF;
+    /*========================================================================*/
+    final DirectionData TO_SERVER = new DirectionData( this, ProtocolConstants.Direction.TO_SERVER );
+    final DirectionData TO_CLIENT = new DirectionData( this, ProtocolConstants.Direction.TO_CLIENT );
+
+    public static void main(String[] args)
+    {
+        for ( int version : ProtocolConstants.SUPPORTED_VERSION_IDS )
+        {
+            dump( version );
+        }
+    }
+
+    private static void dump(int version)
+    {
+        for ( Protocol protocol : Protocol.values() )
+        {
+            dump( version, protocol );
+        }
+    }
+
+    private static void dump(int version, Protocol protocol)
+    {
+        dump( version, protocol.TO_CLIENT );
+        dump( version, protocol.TO_SERVER );
+    }
+
+    private static void dump(int version, DirectionData data)
+    {
+        for ( int id = 0; id < MAX_PACKET_ID; id++ )
+        {
+            DefinedPacket packet = data.createPacket( id, version );
+            if ( packet != null )
+            {
+                System.out.println( version + " " + data.protocolPhase + " " + data.direction + " " + id + " " + packet.getClass().getSimpleName() );
+            }
+        }
+    }
+
+    @Data
+    private static class ProtocolData
+    {
+
+        private final int protocolVersion;
+        private final TObjectIntMap<Class<? extends DefinedPacket>> packetMap = new TObjectIntHashMap<>( MAX_PACKET_ID );
+        private final java.util.function.Supplier<? extends DefinedPacket>[] packetConstructors = new java.util.function.Supplier[ MAX_PACKET_ID ]; // Waterfall - speed up packet construction
+    }
+
+    @Data
+    private static class ProtocolMapping
+    {
+
+        private final int protocolVersion;
+        private final int packetID;
+    }
+
+    // Helper method
+    private static ProtocolMapping map(int protocol, int id)
+    {
+        return new ProtocolMapping( protocol, id );
+    }
+
+    static final class DirectionData
+    {
+
+        private final TIntObjectMap<ProtocolData> protocols = new TIntObjectHashMap<>();
+        //
+        private final Protocol protocolPhase;
+        @Getter
+        private final ProtocolConstants.Direction direction;
+
+        public DirectionData(Protocol protocolPhase, ProtocolConstants.Direction direction)
+        {
+            this.protocolPhase = protocolPhase;
+            this.direction = direction;
+
+            for ( int protocol : ProtocolConstants.SUPPORTED_VERSION_IDS )
+            {
+                protocols.put( protocol, new ProtocolData( protocol ) );
+            }
+        }
+
+        private ProtocolData getProtocolData(int version)
+        {
+            ProtocolData protocol = protocols.get( version );
+            if ( protocol == null && ( protocolPhase != Protocol.GAME ) )
+            {
+                protocol = Iterables.getFirst( protocols.valueCollection(), null );
+            }
+            return protocol;
+        }
+
+        public boolean hasPacket(int i, boolean supportsForge) {
+            return supportsForge || i >= 0 && i <= MAX_PACKET_ID;
+        }
+
+        // Waterdog start
+        public boolean hasPacket(Class<? extends DefinedPacket> packet, int version) {
+            ProtocolData protocol = protocols.get( version );
+            if (protocol == null) {
+                return false;
+            }
+            return protocol.packetMap.containsKey(packet);
+        }
+        // Waterdog end
+
+        public final DefinedPacket createPacket(int id, int version)
+        {
+            return createPacket(id, version, true);
+        }
+
+        public final DefinedPacket createPacket(int id, int version, boolean supportsForge)
+        {
+            ProtocolData protocolData = getProtocolData( version );
+            if ( protocolData == null )
+            {
+                throw new BadPacketException( "Unsupported protocol version " + version );
+            }
+            if ( !hasPacket(id, supportsForge) )
+            {
+                if (ProtocolConstants.isPE(version)) return null; // Waterdog - negative packet ids
+                if ( ProtocolConstants.isBeforeOrEq( version, ProtocolConstants.MINECRAFT_1_7_6 ) ) {
+                    return null;
+                } else {
+                    throw new BadPacketException( "Packet with id " + id + " outside of range " );
+                }
+            }
+
+            java.util.function.Supplier<? extends DefinedPacket> constructor = protocolData.packetConstructors[id]; // Waterfall - speed up packet construction
+            try
+            {
+                return ( constructor == null ) ? null : constructor.get(); // Waterfall - speed up packet construction
+            } catch ( Exception ex ) // Waterfall - speed up packet construction
+            {
+                throw new BadPacketException( "Could not construct packet with id " + id, ex );
+            }
+        }
+
+        private <P extends DefinedPacket> void registerPacket(Class<P> packetClass, java.util.function.Supplier<P> constructor, ProtocolMapping... mappings) // Waterfall - speed up packet construction
+        {
+            // Waterfall start - speed up packet construction
+            /*
+            try
+            {
+                Constructor<? extends DefinedPacket> constructor = packetClass.getDeclaredConstructor();
+                */ // Waterfall end
+
+                int mappingIndex = 0;
+                ProtocolMapping mapping = mappings[mappingIndex];
+                for ( int protocol : ProtocolConstants.SUPPORTED_VERSION_IDS )
+                {
+                    // Waterdog start - dont carry pe mappings into pc
+                    while (protocol > 0 && mapping.protocolVersion < 0) {
+                        if (mappingIndex + 1 < mappings.length) mapping = mappings[++mappingIndex];
+                        else return;
+                    }
+                    // Waterdog end
+
+                    if ( protocol < mapping.protocolVersion )
+                    {
+                        // This is a new packet, skip it till we reach the next protocol
+                        continue;
+                    }
+
+                    if ( mapping.protocolVersion < protocol && mappingIndex + 1 < mappings.length )
+                    {
+                        // Mapping is non current, but the next one may be ok
+                        ProtocolMapping nextMapping = mappings[mappingIndex + 1];
+                        if ( nextMapping.protocolVersion == protocol )
+                        {
+                            Preconditions.checkState( nextMapping.packetID != mapping.packetID, "Duplicate packet mapping (%s, %s)", mapping.protocolVersion, nextMapping.protocolVersion );
+
+                            mapping = nextMapping;
+                            mappingIndex++;
+                        }
+                    }
+
+                    ProtocolData data = protocols.get( protocol );
+                    data.packetMap.put( packetClass, mapping.packetID );
+                    data.packetConstructors[mapping.packetID] = constructor;
+                }
+            // Waterfall start - speed up packet construction
+            /*
+            } catch ( NoSuchMethodException ex )
+            {
+                throw new BadPacketException( "No NoArgsConstructor for packet class " + packetClass );
+            }
+             */ // Waterfall end
+        }
+        // Waterfall start - speed up packet construction (backwards compat)
+        private <P extends DefinedPacket> void registerPacket(Class<P> packetClass, ProtocolMapping... mappings) {
+            java.util.function.Supplier<P> packetSupplier;
+            try {
+                Constructor<? extends DefinedPacket> constructor = packetClass.getDeclaredConstructor();
+                packetSupplier = () -> {
+                    try {
+                        return (P) constructor.newInstance();
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                };
+            } catch (ReflectiveOperationException e) {
+                throw new BadPacketException( "No NoArgsConstructor for packet class " + packetClass );
+            }
+            registerPacket(packetClass, packetSupplier, mappings);
+        }
+        // Waterfall end
+
+        final int getId(Class<? extends DefinedPacket> packet, int version)
+        {
+
+            ProtocolData protocolData = getProtocolData( version );
+            if ( protocolData == null )
+            {
+                throw new BadPacketException( "Unsupported protocol version" );
+            }
+            Preconditions.checkArgument( protocolData.packetMap.containsKey( packet ), "Cannot get ID for packet %s in phase %s with direction %s", packet, protocolPhase, direction );
+
+            return protocolData.packetMap.get( packet );
+        }
+    }
+}

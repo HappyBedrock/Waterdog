@@ -1,0 +1,134 @@
+package net.md_5.bungee.jni.cipher;
+
+import io.netty.buffer.ByteBuf;
+import io.netty.channel.ChannelHandlerContext;
+import java.security.GeneralSecurityException;
+
+import javax.crypto.Cipher;
+import javax.crypto.SecretKey;
+import javax.crypto.ShortBufferException;
+import javax.crypto.spec.IvParameterSpec;
+
+// Wateredog start
+import java.security.MessageDigest;
+
+import io.netty.buffer.Unpooled;
+
+import com.google.common.base.Preconditions;
+// Wateredog end
+
+public class JavaCipher implements BungeeCipher
+{
+
+    private final Cipher cipher;
+    private static final ThreadLocal<byte[]> heapInLocal = new EmptyByteThreadLocal();
+    private static final ThreadLocal<byte[]> heapOutLocal = new EmptyByteThreadLocal();
+    private MessageDigest digest; // Waterdog
+
+    private static class EmptyByteThreadLocal extends ThreadLocal<byte[]>
+    {
+
+        @Override
+        protected byte[] initialValue()
+        {
+            return new byte[ 0 ];
+        }
+    }
+
+    public JavaCipher() throws GeneralSecurityException
+    {
+        this.cipher = Cipher.getInstance( "AES/CFB8/NoPadding" );
+        digest = MessageDigest.getInstance("SHA-256"); // Waterdog
+    }
+
+    @Override
+    public void init(boolean forEncryption, SecretKey key) throws GeneralSecurityException
+    {
+        int mode = forEncryption ? Cipher.ENCRYPT_MODE : Cipher.DECRYPT_MODE;
+        cipher.init( mode, key, new IvParameterSpec( java.util.Arrays.copyOf(key.getEncoded(), 16) ) ); // Waterdog
+    }
+
+    @Override
+    public void cipher(ByteBuf in, ByteBuf out) throws ShortBufferException
+    {
+        int readableBytes = in.readableBytes();
+        byte[] heapIn = bufToByte( in );
+
+        byte[] heapOut = heapOutLocal.get();
+        int outputSize = cipher.getOutputSize( readableBytes );
+        if ( heapOut.length < outputSize )
+        {
+            heapOut = new byte[ outputSize ];
+            heapOutLocal.set( heapOut );
+        }
+        out.writeBytes( heapOut, 0, cipher.update( heapIn, 0, readableBytes, heapOut ) );
+    }
+
+    @Override
+    public ByteBuf cipher(ChannelHandlerContext ctx, ByteBuf in) throws ShortBufferException
+    {
+        int readableBytes = in.readableBytes();
+        byte[] heapIn = bufToByte( in );
+
+        ByteBuf heapOut = ctx.alloc().heapBuffer( cipher.getOutputSize( readableBytes ) );
+        heapOut.writerIndex( cipher.update( heapIn, 0, readableBytes, heapOut.array(), heapOut.arrayOffset() ) );
+
+        return heapOut;
+    }
+
+    @Override
+    public void free()
+    {
+    }
+
+    private byte[] bufToByte(ByteBuf in)
+    {
+        byte[] heapIn = heapInLocal.get();
+        int readableBytes = in.readableBytes();
+        if ( heapIn.length < readableBytes )
+        {
+            heapIn = new byte[ readableBytes ];
+            heapInLocal.set( heapIn );
+        }
+        in.readBytes( heapIn, 0, readableBytes );
+        return heapIn;
+    }
+
+    // Waterdog start
+    public void update(byte in) {
+        digest.update(in);
+    }
+
+    public void updateLongLE(long in) {
+        final ByteBuf counterBytes = Unpooled.buffer(8, 8).writeLongLE(in);
+        while (counterBytes.isReadable()) {
+            update(counterBytes.readByte());
+        }
+    }
+
+    public void update(ByteBuf in) {
+        while (in.isReadable()) {
+            update(in.readByte());
+        }
+    }
+
+    public void digest(ByteBuf out) {
+        out.writeBytes(digest.digest());
+    }
+
+    public void staticPEHash(long counter, ByteBuf in, ByteBuf key, ByteBuf out) {
+        out.ensureWritable(32);
+        Preconditions.checkState(key.readableBytes() == 32, "Hash key must be 32 bytes!");
+        Preconditions.checkState(in.isReadable(), "No hashable data!");
+
+        key.markReaderIndex();
+
+        updateLongLE(counter);
+        update(in);
+        update(key);
+        digest(out);
+
+        key.resetReaderIndex();
+    }
+    // Waterdog end
+}
