@@ -31,7 +31,7 @@ public class PEResourceStack extends DefinedPacket {
 
     @Override
     public void write(ByteBuf buf, ProtocolConstants.Direction direction, int protocolVersion) {
-        buf.writeBoolean(required);
+        buf.writeBoolean(false);
         writePacks(buf, behaviorPacks);
         writePacks(buf, resourcePacks);
         if (protocolVersion < ProtocolConstants.MINECRAFT_PE_1_16_100){
